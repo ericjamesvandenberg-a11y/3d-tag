@@ -1,0 +1,701 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Cube Tag — Custom + AI</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    html,body { margin:0; height:100%; overflow:hidden; background:#071428; font-family:system-ui,Segoe UI,Roboto,Arial; }
+    /* Menu overlay */
+    #menu {
+      position: absolute; inset:0; display:flex; align-items:center; justify-content:center;
+      background: linear-gradient(180deg, rgba(0,0,0,0.55), rgba(0,0,0,0.6));
+      z-index: 200;
+    }
+    #menuPanel {
+      background: rgba(255,255,255,0.03); padding: 18px; border-radius: 12px; width: 820px; max-width: 96%;
+      display:grid; grid-template-columns: 1fr 320px; gap:16px; align-items:start;
+      box-shadow: 0 10px 60px rgba(0,0,0,0.6);
+    }
+    #leftCol { display:flex; flex-direction:column; gap:12px; }
+    #rightCol { display:flex; flex-direction:column; gap:12px; align-items:center; }
+    #startBtn {
+      width: 260px; height: 86px; border-radius: 14px; border: none;
+      background: linear-gradient(180deg,#a0d8ff,#60a9ff);
+      font-size: 28px; font-weight: 700; color: #031428;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.45), inset 0 -3px 0 rgba(255,255,255,0.12);
+      cursor: pointer;
+    }
+    label { color: #eaf6ff; font-weight:600; display:flex; gap:8px; align-items:center; }
+    .sub { color: #cfe9ff; font-weight:400; font-size:13px; }
+    .row { display:flex; gap:8px; align-items:center; }
+    input[type="range"] { width: 220px; }
+    .small { font-size:12px; color:#cfe9ff; width:54px; text-align:right; }
+    #instructions {
+      position: absolute; top: 12px; left: 12px; z-index: 150;
+      background: rgba(0,0,0,0.45); color: #eee; padding: 8px 10px; border-radius: 8px;
+      font-size: 13px; pointer-events: none; max-width: 380px;
+    }
+    #divider { position:absolute; left:50%; top:0; bottom:0; width:2px; background: rgba(255,255,255,0.08); z-index:140; pointer-events:none; }
+    @media (max-width:900px){
+      #menuPanel { grid-template-columns: 1fr; width: 92%; }
+      #rightCol { align-items:stretch; }
+    }
+  </style>
+</head>
+<body>
+  <div id="menu">
+    <div id="menuPanel">
+      <div id="leftCol">
+        <div style="color:#eaf6ff; font-size:20px; font-weight:700;">Game Options</div>
+
+        <div>
+          <div class="sub">Generation mode</div>
+          <div style="display:flex; gap:10px; margin-top:6px; flex-wrap:wrap;">
+            <label><input type="radio" name="genMode" value="none" /> No ramps or blocks</label>
+            <label><input type="radio" name="genMode" value="blocks" /> Blocks only</label>
+            <label><input type="radio" name="genMode" value="ramps" /> Ramps only</label>
+            <label><input type="radio" name="genMode" value="both" checked /> Blocks + Ramps (default)</label>
+          </div>
+        </div>
+
+        <div>
+          <div class="sub">Players & AI</div>
+          <div style="display:flex; gap:8px; align-items:center; margin-top:6px;">
+            <label><input id="enableP2" type="checkbox" checked /> Enable Player 2</label>
+            <label><input id="enableAI" type="checkbox" /> Enable AI Bot (replaces Player 2)</label>
+          </div>
+          <div class="small" style="margin-top:6px; color:#cfe9ff;">If AI is checked it replaces Player 2's control. You can disable both players (single-player).</div>
+        </div>
+
+        <div>
+          <div class="sub">Arena & physics</div>
+          <div style="margin-top:8px; display:flex; flex-direction:column; gap:10px;">
+            <div class="row"><label style="width:160px">Arena half-size</label>
+              <input id="arenaSize" type="range" min="50" max="300" step="2" value="100" />
+              <div class="small" id="arenaSizeVal">100</div>
+            </div>
+
+            <div class="row"><label style="width:160px">Acceleration</label>
+              <input id="accel" type="range" min="50" max="1200" step="10" value="240" />
+              <div class="small" id="accelVal">240</div>
+            </div>
+
+            <div class="row"><label style="width:160px">Jump speed</label>
+              <input id="jump" type="range" min="10" max="160" step="1" value="40" />
+              <div class="small" id="jumpVal">40</div>
+            </div>
+
+            <div class="row"><label style="width:160px">Bounciness</label>
+              <input id="restitution" type="range" min="0" max="1" step="0.05" value="0.6" />
+              <div class="small" id="restVal">0.60</div>
+            </div>
+
+            <div class="row"><label style="width:160px">Friction</label>
+              <input id="friction" type="range" min="0" max="5" step="0.05" value="0.8" />
+              <div class="small" id="fricVal">0.80</div>
+            </div>
+
+            <div style="display:flex; gap:8px; align-items:center;">
+              <input id="enableMax" type="checkbox" /> <label style="margin:0">Enable max speed</label>
+            </div>
+            <div class="row"><label style="width:160px">Max speed</label>
+              <input id="maxSpeed" type="range" min="20" max="1000" step="5" value="300" disabled />
+              <div class="small" id="maxSpeedVal">300</div>
+            </div>
+
+            <div class="row"><label style="width:160px">Cube size</label>
+              <input id="cubeSize" type="range" min="0.8" max="4" step="0.1" value="2" />
+              <div class="small" id="cubeSizeVal">2.0</div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+
+      <div id="rightCol">
+        <div style="align-self:stretch; padding:10px; background:rgba(255,255,255,0.02); border-radius:8px;">
+          <div style="color:#eaf6ff; font-weight:700;">Notes</div>
+          <div class="sub" style="margin-top:8px;">
+            - AI is simple: if it's the tagger it chases Player 1; otherwise it runs away and samples open directions. <br>
+            - Friction reduces horizontal sliding; higher = more grip. <br>
+            - Ramps let you slide up: try jumping onto them. <br>
+            - All rules from the Master Sheet are implemented.
+          </div>
+        </div>
+
+        <button id="startBtn">Start</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="instructions">
+    <b>Player 1 (Left)</b>: W = forward, S = backward, A/D = turn, Space = jump — <em>starts TAGGER</em><br>
+    <b>Player 2 (Right)</b>: Arrow keys = move/turn, Shift = jump
+  </div>
+
+  <div id="divider"></div>
+
+  <script src="https://unpkg.com/three@0.158.0/build/three.min.js"></script>
+  <script>
+  // ========================= Defaults (will be overwritten by menu when Start pressed) =========================
+  let CONFIG = {
+    BOX_HALF: 100,
+    GRAVITY: -80,
+    ACCEL: 240,
+    TURN_SPEED: 2.5,
+    RESTITUTION: 0.6,
+    JUMP_SPEED: 40,
+    CUBE_SIZE: 2,
+    TAG_COOLDOWN: 1000,
+    FRICTION: 0.8,
+    MAX_BLOCKS: 100, MIN_BLOCKS: 20,
+    BLOCK_MIN_SIZE:1.2, BLOCK_MAX_SIZE:8, BLOCK_PADDING:6,
+    MIN_RAMPS:6, MAX_RAMPS:24, RAMP_MAX_HEIGHT:30,
+  };
+
+  // ===== State =====
+  let gameStarted = false;
+  let selectedMode = 'both';
+  let enableP2 = true;
+  let enableAI = false;
+  let lastTagTime = performance.now() - CONFIG.TAG_COOLDOWN;
+  let blocks = [], ramps = [];
+
+  // ===== Three.js init =====
+  const renderer = new THREE.WebGLRenderer({ antialias:true });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+  renderer.autoClear = false;
+  document.body.appendChild(renderer.domElement);
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x071428);
+  const dirLight = new THREE.DirectionalLight(0xffffff, 0.95);
+  dirLight.position.set(40,80,40); scene.add(dirLight);
+  scene.add(new THREE.AmbientLight(0x666666,0.55));
+
+  // ===== scene parts (created on start) =====
+  let floorMesh = null, walls = null, dome = null;
+
+  // ===== players creation (meshes exist before start so menu background renders) =====
+  function makePlayerMesh(color){
+    return new THREE.Mesh(new THREE.BoxGeometry(CONFIG.CUBE_SIZE, CONFIG.CUBE_SIZE, CONFIG.CUBE_SIZE),
+      new THREE.MeshStandardMaterial({ color, roughness:0.45 }));
+  }
+  const p1Mesh = makePlayerMesh(0x3377ff);
+  const p2Mesh = makePlayerMesh(0xffcc33);
+  p1Mesh.position.set(-8,5,0); p2Mesh.position.set(8,5,0);
+  scene.add(p1Mesh); scene.add(p2Mesh);
+
+  const player1 = { mesh: p1Mesh, pos: p1Mesh.position.clone(), vel: new THREE.Vector3(), dir:0, grounded:false, isTagger:true, active:true };
+  const player2 = { mesh: p2Mesh, pos: p2Mesh.position.clone(), vel: new THREE.Vector3(), dir:Math.PI, grounded:false, isTagger:false, active:true, isAI:false };
+
+  // ===== tag labels (layered sprites) =====
+  function makeTagSprite(text){
+    const c = document.createElement('canvas'); c.width=512; c.height=128;
+    const ctx = c.getContext('2d'); ctx.font='bold 72px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.lineWidth=8; ctx.strokeStyle='rgba(0,0,0,0.9)'; ctx.strokeText(text,c.width/2,c.height/2); ctx.fillStyle='#fff'; ctx.fillText(text,c.width/2,c.height/2);
+    const tex = new THREE.CanvasTexture(c);
+    const mat = new THREE.SpriteMaterial({ map:tex, transparent:true });
+    const s = new THREE.Sprite(mat); s.scale.set(8,2.2,1); s.position.set(0,CONFIG.CUBE_SIZE*1.5+0.8,0);
+    return s;
+  }
+  const tagSprite1 = makeTagSprite('TAGGER'); tagSprite1.layers.set(1); player1.mesh.add(tagSprite1); tagSprite1.visible = true;
+  const tagSprite2 = makeTagSprite('TAGGER'); tagSprite2.layers.set(2); player2.mesh.add(tagSprite2); tagSprite2.visible = false;
+
+  // ===== cameras & layers =====
+  const cam1 = new THREE.PerspectiveCamera(65, (window.innerWidth/2)/window.innerHeight, 0.1, 2000);
+  const cam2 = new THREE.PerspectiveCamera(65, (window.innerWidth/2)/window.innerHeight, 0.1, 2000);
+  cam1.layers.enable(0); cam1.layers.enable(1); cam1.layers.disable(2);
+  cam2.layers.enable(0); cam2.layers.enable(2); cam2.layers.disable(1);
+
+  // ===== input =====
+  const keys = {};
+  window.addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; if(e.key === ' ') keys[' '] = true; });
+  window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; if(e.key === ' ') keys[' '] = false; });
+  const controls = { p1:{forward:'w', back:'s', left:'a', right:'d', jump:' '}, p2:{forward:'arrowup', back:'arrowdown', left:'arrowleft', right:'arrowright', jump:'shift'} };
+
+  // ===== UI bindings =====
+  const arenaSizeEl = document.getElementById('arenaSize'), arenaSizeVal = document.getElementById('arenaSizeVal');
+  arenaSizeVal.textContent = arenaSizeEl.value;
+  arenaSizeEl.addEventListener('input', ()=> arenaSizeVal.textContent = arenaSizeEl.value);
+
+  const accelEl = document.getElementById('accel'), accelVal = document.getElementById('accelVal');
+  accelVal.textContent = accelEl.value; accelEl.addEventListener('input', ()=> accelVal.textContent = accelEl.value);
+
+  const jumpEl = document.getElementById('jump'), jumpVal = document.getElementById('jumpVal');
+  jumpVal.textContent = jumpEl.value; jumpEl.addEventListener('input', ()=> jumpVal.textContent = jumpEl.value);
+
+  const restEl = document.getElementById('restitution'), restVal = document.getElementById('restVal');
+  restVal.textContent = parseFloat(restEl.value).toFixed(2); restEl.addEventListener('input', ()=> restVal.textContent = parseFloat(restEl.value).toFixed(2));
+
+  const fricEl = document.getElementById('friction'), fricVal = document.getElementById('fricVal');
+  fricVal.textContent = parseFloat(fricEl.value).toFixed(2); fricEl.addEventListener('input', ()=> fricVal.textContent = parseFloat(fricEl.value).toFixed(2));
+
+  const enableMaxEl = document.getElementById('enableMax'), maxSpeedEl = document.getElementById('maxSpeed'), maxSpeedVal = document.getElementById('maxSpeedVal');
+  maxSpeedVal.textContent = maxSpeedEl.value;
+  enableMaxEl.addEventListener('change', ()=> maxSpeedEl.disabled = !enableMaxEl.checked);
+  maxSpeedEl.addEventListener('input', ()=> maxSpeedVal.textContent = maxSpeedEl.value);
+
+  const cubeSizeEl = document.getElementById('cubeSize'), cubeSizeVal = document.getElementById('cubeSizeVal');
+  cubeSizeVal.textContent = parseFloat(cubeSizeEl.value).toFixed(1);
+  cubeSizeEl.addEventListener('input', ()=> cubeSizeVal.textContent = parseFloat(cubeSizeEl.value).toFixed(1));
+
+  document.querySelectorAll('input[name="genMode"]').forEach(r => r.addEventListener('change', e => selectedMode = e.target.value));
+  const enableP2El = document.getElementById('enableP2'), enableAIEl = document.getElementById('enableAI');
+  enableP2El.addEventListener('change', ()=> enableP2 = enableP2El.checked);
+  enableAIEl.addEventListener('change', ()=> enableAI = enableAIEl.checked);
+
+  // ===== random helpers =====
+  function biasedLow(max){ const r = Math.random(); return r*r*max; }
+
+  // ===== build environment using current CONFIG =====
+  function buildEnvironment(){
+    // remove previous if exist
+    if (floorMesh) scene.remove(floorMesh);
+    if (walls) scene.remove(walls);
+    if (dome) scene.remove(dome);
+
+    // floor texture
+    const size = 128;
+    const c = document.createElement('canvas'); c.width = c.height = size; const ctx = c.getContext('2d');
+    ctx.fillStyle = '#2ea14e'; ctx.fillRect(0,0,size,size);
+    ctx.strokeStyle = '#1f6b36'; ctx.lineWidth = 6;
+    const stripes = 12; for(let i=0;i<stripes;i++){ const y=(i+0.5)*size/stripes; ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(size,y); ctx.stroke(); }
+    const tex = new THREE.CanvasTexture(c); tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set((CONFIG.BOX_HALF*2)/4, (CONFIG.BOX_HALF*2)/4);
+
+    floorMesh = new THREE.Mesh(new THREE.PlaneGeometry(CONFIG.BOX_HALF*2, CONFIG.BOX_HALF*2), new THREE.MeshPhongMaterial({ map: tex, side: THREE.DoubleSide }));
+    floorMesh.rotation.x = -Math.PI/2; floorMesh.position.y = 0; scene.add(floorMesh);
+
+    walls = new THREE.Mesh(new THREE.BoxGeometry(CONFIG.BOX_HALF*2, CONFIG.BOX_HALF*2, CONFIG.BOX_HALF*2),
+      new THREE.MeshPhongMaterial({ color:0x233a63, transparent:true, opacity:0.08, side: THREE.BackSide }));
+    scene.add(walls);
+
+    dome = new THREE.Mesh(new THREE.SphereGeometry(Math.max(150, CONFIG.BOX_HALF*1.5), 64, 64),
+      new THREE.MeshPhongMaterial({ color: 0x66aaff, transparent:true, opacity:0.22, shininess:80, side: THREE.BackSide }));
+    dome.position.y = Math.min(150, CONFIG.BOX_HALF * 0.6 + 50);
+    scene.add(dome);
+  }
+
+  // ===== procedural generation: blocks & ramps =====
+  function generateBlocks(){
+    blocks.forEach(b => scene.remove(b.mesh)); blocks = [];
+    const count = Math.floor(CONFIG.MIN_BLOCKS + Math.random()*(CONFIG.MAX_BLOCKS - CONFIG.MIN_BLOCKS + 1));
+    for(let i=0;i<count;i++){
+      const size = CONFIG.BLOCK_MIN_SIZE + Math.random()*(CONFIG.BLOCK_MAX_SIZE - CONFIG.BLOCK_MIN_SIZE);
+      const range = CONFIG.BOX_HALF - CONFIG.BLOCK_PADDING - size/2;
+      const x = (Math.random()*2 -1) * range; const z = (Math.random()*2 -1) * range;
+      const maxY = CONFIG.BOX_HALF - size/2 - 2;
+      const y = Math.max(size/2, 0.2 + biasedLow(maxY));
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(size,size,size), new THREE.MeshPhongMaterial({ color:0x8fb3c9 }));
+      mesh.position.set(x,y,z); mesh.userData.half = size/2; scene.add(mesh);
+      blocks.push({ mesh, half: size/2 });
+    }
+    // nudge blocks from players
+    [player1, player2].forEach(p => {
+      blocks.forEach(b => {
+        const dx = p.pos.x - b.mesh.position.x, dz = p.pos.z - b.mesh.position.z;
+        const dist = Math.hypot(dx,dz), minDist = (CONFIG.CUBE_SIZE/2) + b.half + 1.2;
+        if(dist < minDist){
+          const nx = dx || 0.0001, nz = dz || 0.0001; const len = Math.hypot(nx,nz);
+          b.mesh.position.x = p.pos.x + (nx/len) * minDist;
+          b.mesh.position.z = p.pos.z + (nz/len) * minDist;
+        }
+      });
+    });
+  }
+
+  function generateRamps(){
+    ramps.forEach(r => scene.remove(r.mesh)); ramps = [];
+    const count = Math.floor(CONFIG.MIN_RAMPS + Math.random()*(CONFIG.MAX_RAMPS - CONFIG.MIN_RAMPS + 1));
+    for(let i=0;i<count;i++){
+      const length = 6 + Math.random()*(28-6);
+      const width = 3 + Math.random()*(10-3);
+      const slopeDeg = 10 + Math.random()*(40-10);
+      const slope = THREE.MathUtils.degToRad(slopeDeg);
+      const range = CONFIG.BOX_HALF - CONFIG.BLOCK_PADDING - Math.max(length/2, width/2);
+      const x = (Math.random()*2 -1) * range; const z = (Math.random()*2 -1) * range;
+      const maxY = Math.min(CONFIG.RAMP_MAX_HEIGHT, CONFIG.BOX_HALF - length * Math.sin(slope)/2 - 2);
+      const y = Math.max(0.5 + biasedLow(maxY), length * Math.sin(slope)/2 + 0.5);
+      const geom = new THREE.PlaneGeometry(length,width,1,1);
+      const mesh = new THREE.Mesh(geom, new THREE.MeshPhongMaterial({ color:0xc9a86b, side: THREE.DoubleSide }));
+      mesh.rotateX(-slope);
+      const yaw = Math.random()*Math.PI*2; mesh.rotateY(yaw);
+      mesh.position.set(x,y,z); mesh.userData = { length, width, slope, yaw }; mesh.updateMatrixWorld();
+      scene.add(mesh);
+      ramps.push({ mesh, length, width, slope, yaw, center: mesh.position.clone() });
+    }
+  }
+
+  // ===== tag system =====
+  function updateTagDisplay(){ tagSprite1.visible = player1.isTagger; tagSprite2.visible = player2.isTagger; }
+  function transferTag(tagger, other){ tagger.isTagger=false; other.isTagger=true; updateTagDisplay(); lastTagTime = performance.now(); }
+  function checkTagCollision(){
+    if (!player2.active) return;
+    const threshold = CONFIG.CUBE_SIZE * 1.1;
+    const d = player1.mesh.position.distanceTo(player2.mesh.position);
+    const now = performance.now();
+    if(d <= threshold && now - lastTagTime >= CONFIG.TAG_COOLDOWN){
+      if(player1.isTagger && !player2.isTagger) transferTag(player1, player2);
+      else if(player2.isTagger && !player1.isTagger) transferTag(player2, player1);
+    }
+  }
+
+  // ===== ramp detection + sliding (raycast) =====
+  const rampRay = new THREE.Raycaster();
+  function resolveRampCollision(player){
+    if (!ramps.length) return false;
+    const origin = new THREE.Vector3(player.pos.x, player.pos.y + 0.4, player.pos.z);
+    rampRay.set(origin, new THREE.Vector3(0,-1,0));
+    const rampMeshes = ramps.map(r=>r.mesh);
+    const intersects = rampRay.intersectObjects(rampMeshes, true);
+    if(intersects.length === 0) return false;
+    const it = intersects[0]; const point = it.point; const dist = origin.y - point.y;
+    if(dist < 0 || dist > 1.4) return false;
+    const localNormal = it.face.normal.clone();
+    const normalWorld = localNormal.transformDirection(it.object.matrixWorld).normalize();
+    const up = new THREE.Vector3(0,1,0);
+    const tangent = new THREE.Vector3().crossVectors(up, normalWorld).normalize();
+    if (tangent.y < 0) tangent.negate();
+    player.pos.y = point.y + CONFIG.CUBE_SIZE/2 + 0.001;
+    player.grounded = true;
+    const velAlong = player.vel.dot(tangent);
+    const slideGain = 1.25;
+    const newAlong = (velAlong * 0.9) + (Math.abs(velAlong) < 0.5 ? 1.0 : 0);
+    const slideVel = tangent.clone().multiplyScalar(newAlong * slideGain);
+    player.vel.copy(slideVel);
+    return true;
+  }
+
+  // ===== block collisions (AABB push) =====
+  function resolveBlockCollision(player){
+    const px = player.pos.x, py = player.pos.y, pz = player.pos.z; const ph = CONFIG.CUBE_SIZE/2;
+    for(const b of blocks){
+      const bx = b.mesh.position.x, by = b.mesh.position.y, bz = b.mesh.position.z, bh = b.half;
+      const overlapX = Math.abs(px - bx) - (ph + bh);
+      const overlapY = Math.abs(py - by) - (ph + bh);
+      const overlapZ = Math.abs(pz - bz) - (ph + bh);
+      if (overlapX < 0 && overlapY < 0 && overlapZ < 0){
+        const penX = -overlapX, penY = -overlapY, penZ = -overlapZ;
+        if (penY <= penX && penY <= penZ){
+          if (py > by){
+            player.pos.y += penY + 0.001;
+            if(player.vel.y < 0) player.vel.y = -player.vel.y * CONFIG.RESTITUTION;
+            player.grounded = true;
+          } else {
+            player.pos.y -= penY + 0.001;
+            if(player.vel.y > 0) player.vel.y = -player.vel.y * CONFIG.RESTITUTION;
+          }
+        } else if (penX <= penZ){
+          if(px > bx){
+            player.pos.x += penX + 0.001; if(player.vel.x < 0) player.vel.x = -player.vel.x * CONFIG.RESTITUTION;
+          } else {
+            player.pos.x -= penX + 0.001; if(player.vel.x > 0) player.vel.x = -player.vel.x * CONFIG.RESTITUTION;
+          }
+        } else {
+          if(pz > bz){
+            player.pos.z += penZ + 0.001; if(player.vel.z < 0) player.vel.z = -player.vel.z * CONFIG.RESTITUTION;
+          } else {
+            player.pos.z -= penZ + 0.001; if(player.vel.z > 0) player.vel.z = -player.vel.z * CONFIG.RESTITUTION;
+          }
+        }
+      }
+    }
+  }
+
+  // ===== apply friction to horizontal motion =====
+  function applyFriction(player, dt){
+    const f = CONFIG.FRICTION;
+    if (f <= 0) return;
+    // simple exponential damping: v *= exp(-f * dt)
+    const damp = Math.exp(-f * dt);
+    player.vel.x *= damp; player.vel.z *= damp;
+  }
+
+  // ===== controls & physics per player =====
+  function applyControlsAndPhysics(player, ctrl, dt){
+    // turning
+    if (keys[ctrl.left]) player.dir += CONFIG.TURN_SPEED * dt;
+    if (keys[ctrl.right]) player.dir -= CONFIG.TURN_SPEED * dt;
+
+    // movement forward/back
+    let move = 0; if (keys[ctrl.forward]) move += 1; if (keys[ctrl.back]) move -= 1;
+    if (move !== 0){
+      const fwd = new THREE.Vector3(Math.sin(player.dir),0,Math.cos(player.dir));
+      player.vel.add(fwd.multiplyScalar(CONFIG.ACCEL * dt * move));
+    }
+
+    // jump
+    if (keys[ctrl.jump] && player.grounded){
+      player.vel.y = CONFIG.JUMP_SPEED; player.grounded = false;
+    }
+
+    // optional max speed
+    if (window._maxSpeedEnabled){
+      const maxS = window._maxSpeedValue || 9999;
+      const horiz = new THREE.Vector3(player.vel.x,0,player.vel.z);
+      const hs = horiz.length();
+      if (hs > maxS){
+        horiz.setLength(maxS);
+        player.vel.x = horiz.x; player.vel.z = horiz.z;
+      }
+    }
+
+    // integrate vertical
+    player.vel.y += CONFIG.GRAVITY * dt;
+    player.pos.addScaledVector(player.vel, dt);
+
+    // walls bounce
+    const half = CONFIG.BOX_HALF - CONFIG.CUBE_SIZE/2;
+    if (player.pos.x < -half) { player.pos.x = -half; if(player.vel.x < 0) player.vel.x = -player.vel.x * CONFIG.RESTITUTION; }
+    else if (player.pos.x > half) { player.pos.x = half; if(player.vel.x > 0) player.vel.x = -player.vel.x * CONFIG.RESTITUTION; }
+    if (player.pos.z < -half) { player.pos.z = -half; if(player.vel.z < 0) player.vel.z = -player.vel.z * CONFIG.RESTITUTION; }
+    else if (player.pos.z > half) { player.pos.z = half; if(player.vel.z > 0) player.vel.z = -player.vel.z * CONFIG.RESTITUTION; }
+
+    // ceiling/floor
+    const minY = CONFIG.CUBE_SIZE/2;
+    if (player.pos.y < minY) { player.pos.y = minY; if(player.vel.y < 0){ player.vel.y = 0; player.grounded = true; } }
+    else if (player.pos.y > CONFIG.BOX_HALF - CONFIG.CUBE_SIZE/2) { player.pos.y = CONFIG.BOX_HALF - CONFIG.CUBE_SIZE/2; if(player.vel.y > 0) player.vel.y = -player.vel.y * CONFIG.RESTITUTION; }
+
+    // ramps
+    resolveRampCollision(player);
+
+    // blocks
+    if (blocks.length) resolveBlockCollision(player);
+
+    // friction (horizontal)
+    applyFriction(player, dt);
+
+    // update mesh
+    player.mesh.position.copy(player.pos);
+    player.mesh.rotation.y = player.dir;
+  }
+
+  // ===== camera follow =====
+  function updateCamera(cam, player){
+    const camDist = 10; const camH = 6;
+    const offset = new THREE.Vector3(Math.sin(player.dir)*-camDist, camH, Math.cos(player.dir)*-camDist);
+    cam.position.copy(player.pos).add(offset);
+    cam.lookAt(player.pos.clone().add(new THREE.Vector3(0,1.6,0)));
+  }
+
+  // ===== simple AI (chase or flee) =====
+  // AI uses steering: set desired direction and apply acceleration/turning
+  function aiStep(ai, target, dt){
+    // ai: player2 object, target: player1
+    // If ai inactive, do nothing
+    if (!ai.active || !ai.isAI) return;
+
+    const dirToTarget = new THREE.Vector3().subVectors(target.pos, ai.pos);
+    const dist = dirToTarget.length();
+    const desired = dirToTarget.clone().normalize();
+
+    // Decide behavior: if AI is tagger -> chase, else flee
+    if (ai.isTagger){
+      // chase: steer toward player1
+      const desiredYaw = Math.atan2(desired.x, desired.z);
+      // rotate toward desired
+      const angDiff = wrapAngle(desiredYaw - ai.dir);
+      ai.dir += Math.sign(angDiff) * Math.min(Math.abs(angDiff), CONFIG.TURN_SPEED * dt);
+      // push forward with moderated speed depending on distance
+      const speedFactor = Math.min(1, Math.max(0.4, dist/6));
+      const forward = new THREE.Vector3(Math.sin(ai.dir),0,Math.cos(ai.dir));
+      // apply acceleration scaled
+      ai.vel.add(forward.multiplyScalar(CONFIG.ACCEL * dt * speedFactor));
+      // small jump occasionally if near ramp or close
+      if (Math.random() < 0.005 && ai.grounded) { ai.vel.y = CONFIG.JUMP_SPEED * 0.8; ai.grounded = false; }
+    } else {
+      // flee: sample several directions and pick the one with largest clearance
+      const samples = 8;
+      let bestDir = null, bestScore = -Infinity;
+      for(let i=0;i<samples;i++){
+        // pick angle biased away from target + some randomness
+        const base = Math.atan2(-dirToTarget.x, -dirToTarget.z); // away angle
+        const angle = base + (Math.random()-0.5) * 1.4 + (i - samples/2) * 0.08;
+        const dx = Math.sin(angle), dz = Math.cos(angle);
+        // compute clearance score = distance to nearest block/wall along that ray up to radius
+        const rayLen = 30;
+        let minDist = CONFIG.BOX_HALF; // distance until obstacle/wall
+        // distance to walls in that direction
+        const t1 = (dx > 0) ? (CONFIG.BOX_HALF - ai.pos.x) / dx : (dx < 0 ? (-CONFIG.BOX_HALF - ai.pos.x) / dx : Infinity);
+        const t2 = (dz > 0) ? (CONFIG.BOX_HALF - ai.pos.z) / dz : (dz < 0 ? (-CONFIG.BOX_HALF - ai.pos.z) / dz : Infinity);
+        minDist = Math.min(minDist, Math.max(0, Math.min(t1,t2)));
+        // approximate block collision by checking distance to block centers projected onto direction
+        for(const b of blocks){
+          const vx = b.mesh.position.x - ai.pos.x, vz = b.mesh.position.z - ai.pos.z;
+          const proj = vx*dx + vz*dz;
+          if (proj > 0 && proj < rayLen){
+            const perp2 = (vx*vx + vz*vz) - proj*proj;
+            const clearance = Math.sqrt(perp2);
+            if (clearance < (b.half + CONFIG.CUBE_SIZE/2 + 1.2)){
+              minDist = Math.min(minDist, proj);
+            }
+          }
+        }
+        const score = minDist + (Math.random()*2 -1) * 2; // prefer larger minDist
+        if (score > bestScore){ bestScore = score; bestDir = angle; }
+      }
+      // steer toward bestDir
+      const angDiff = wrapAngle(bestDir - ai.dir);
+      ai.dir += Math.sign(angDiff) * Math.min(Math.abs(angDiff), CONFIG.TURN_SPEED * dt * 1.2);
+      // move forward
+      const fwd = new THREE.Vector3(Math.sin(ai.dir),0,Math.cos(ai.dir));
+      ai.vel.add(fwd.multiplyScalar(CONFIG.ACCEL * dt * 0.9));
+      // sometimes jump if near chaser
+      if (dist < 10 && Math.random() < 0.02 && ai.grounded){
+        ai.vel.y = CONFIG.JUMP_SPEED * 0.9; ai.grounded = false;
+      }
+    }
+
+    // limit AI horizontal speed a bit to keep behavior stable
+    const horiz = new THREE.Vector3(ai.vel.x,0,ai.vel.z);
+    const maxAI = Math.max(120, (window._maxSpeedEnabled ? window._maxSpeedValue : 400));
+    if (horiz.length() > maxAI){ horiz.setLength(maxAI); ai.vel.x = horiz.x; ai.vel.z = horiz.z; }
+  }
+
+  // wrap angle to -PI..PI
+  function wrapAngle(a){
+    while(a > Math.PI) a -= Math.PI*2;
+    while(a < -Math.PI) a += Math.PI*2;
+    return a;
+  }
+
+  // ===== main physics tick & loop =====
+  let last = performance.now();
+  function loop(now){
+    requestAnimationFrame(loop);
+    const dt = Math.min((now - last)/1000, 0.05);
+    last = now;
+
+    if (!gameStarted){
+      // render a subtle background scene using cam1
+      renderer.clear();
+      renderer.setViewport(0,0,window.innerWidth, window.innerHeight);
+      renderer.render(scene, cam1);
+      return;
+    }
+
+    // AI decides before physics
+    if (enableAI && player2.active && player2.isAI){
+      aiStep(player2, player1, dt);
+    }
+
+    // Player1 controls if active
+    if (player1.active) applyControlsAndPhysics(player1, controls.p1, dt);
+
+    // Player2: either AI or human or disabled
+    if (player2.active){
+      if (player2.isAI){
+        // AI already set movement by modifying vel/dir above; still apply physics steps (gravity etc.)
+        // We'll call a physics-only variant: don't apply human keyboard controls
+        // But for cohesion, reuse applyControlsAndPhysics with empty control mapping (no keys)
+        const fakeCtrl = { forward:'', back:'', left:'', right:'', jump:'' };
+        applyControlsAndPhysics(player2, fakeCtrl, dt);
+      } else {
+        // human-controlled player2
+        applyControlsAndPhysics(player2, controls.p2, dt);
+      }
+    }
+
+    // after movement, check tag collisions
+    checkTagCollision();
+
+    // cameras
+    if (player1.active) updateCamera(cam1, player1);
+    if (player2.active) updateCamera(cam2, player2);
+
+    // render split-screen
+    renderer.clear();
+    renderer.setScissorTest(true);
+
+    // left viewport
+    renderer.setViewport(0,0,window.innerWidth/2, window.innerHeight);
+    renderer.setScissor(0,0,window.innerWidth/2, window.innerHeight);
+    renderer.render(scene, cam1);
+
+    // right viewport (if player2 disabled, show empty scene with cam2 showing something)
+    renderer.setViewport(window.innerWidth/2,0,window.innerWidth/2, window.innerHeight);
+    renderer.setScissor(window.innerWidth/2,0,window.innerWidth/2, window.innerHeight);
+    renderer.render(scene, cam2);
+
+    renderer.setScissorTest(false);
+  }
+  requestAnimationFrame(loop);
+
+  // ===== menu Start behavior =====
+  const startBtn = document.getElementById('startBtn');
+  startBtn.addEventListener('click', ()=> {
+    // read menu values into CONFIG
+    CONFIG.BOX_HALF = parseFloat(document.getElementById('arenaSize').value);
+    CONFIG.ACCEL = parseFloat(document.getElementById('accel').value);
+    CONFIG.JUMP_SPEED = parseFloat(document.getElementById('jump').value);
+    CONFIG.RESTITUTION = parseFloat(document.getElementById('restitution').value);
+    CONFIG.FRICTION = parseFloat(document.getElementById('friction').value);
+    CONFIG.CUBE_SIZE = parseFloat(document.getElementById('cubeSize').value);
+
+    window._maxSpeedEnabled = document.getElementById('enableMax').checked;
+    window._maxSpeedValue = parseFloat(document.getElementById('maxSpeed').value);
+
+    // procedural mode
+    selectedMode = document.querySelector('input[name="genMode"]:checked').value;
+    enableP2 = document.getElementById('enableP2').checked;
+    enableAI = document.getElementById('enableAI').checked;
+
+    // rebuild environment (floor/walls/dome)
+    buildEnvironment();
+
+    // remove old blocks & ramps
+    blocks.forEach(b => scene.remove(b.mesh)); blocks = [];
+    ramps.forEach(r => scene.remove(r.mesh)); ramps = [];
+
+    // set cube sizes on meshes
+    player1.mesh.geometry.dispose();
+    player1.mesh.geometry = new THREE.BoxGeometry(CONFIG.CUBE_SIZE, CONFIG.CUBE_SIZE, CONFIG.CUBE_SIZE);
+    player2.mesh.geometry.dispose();
+    player2.mesh.geometry = new THREE.BoxGeometry(CONFIG.CUBE_SIZE, CONFIG.CUBE_SIZE, CONFIG.CUBE_SIZE);
+    // adjust tag sprite height
+    tagSprite1.position.set(0, CONFIG.CUBE_SIZE*1.5 + 0.8, 0);
+    tagSprite2.position.set(0, CONFIG.CUBE_SIZE*1.5 + 0.8, 0);
+
+    // generate content based on mode
+    if (selectedMode === 'blocks' || selectedMode === 'both') generateBlocks();
+    if (selectedMode === 'ramps'  || selectedMode === 'both') generateRamps();
+
+    // configure player2 active/ai
+    player1.active = true;
+    player2.active = enableP2 || enableAI;
+    player2.isAI = enableAI;
+    player2.mesh.visible = player2.active;
+
+    // set initial positions (scale with arena)
+    player1.pos.set(-Math.min(12, CONFIG.BOX_HALF/8), 5, 0); player1.vel.set(0,0,0); player1.dir = 0; player1.grounded=false;
+    player2.pos.set(Math.min(12, CONFIG.BOX_HALF/8), 5, 0); player2.vel.set(0,0,0); player2.dir = Math.PI; player2.grounded=false;
+    player1.mesh.position.copy(player1.pos);
+    player2.mesh.position.copy(player2.pos);
+
+    // tag initial state (P1 starts tagger)
+    player1.isTagger = true; player2.isTagger = false; updateTagDisplay();
+    lastTagTime = performance.now() - CONFIG.TAG_COOLDOWN;
+
+    // hide menu & begin
+    document.getElementById('menu').style.display = 'none';
+    gameStarted = true;
+  });
+
+  // ===== helpers/resizes =====
+  window.addEventListener('resize', ()=> {
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    cam1.aspect = (window.innerWidth/2)/window.innerHeight; cam1.updateProjectionMatrix();
+    cam2.aspect = (window.innerWidth/2)/window.innerHeight; cam2.updateProjectionMatrix();
+  });
+
+  // initial camera placement so menu background looks OK
+  cam1.position.set(0,40,100); cam1.lookAt(0,0,0);
+  cam2.position.set(0,40,100); cam2.lookAt(0,0,0);
+
+  </script>
+</body>
+</html>
